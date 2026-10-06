@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ばらばら かんじ パズル</title>
+<style>
+:root{
+  --bg:#fff8ec; --ink:#2b2b2b; --card:#ffffff; --accent:#ff8a3d; --accent2:#3aa0e8;
+  --slot:#eef6ff; --slotline:#8fbfe8; --ok:#2fb36b; --ng:#e8505b; --piece:#fffdf6;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;overflow:hidden;touch-action:none}
+button{font-family:inherit;cursor:pointer;border:none}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;padding:16px;padding-top:max(16px,env(safe-area-inset-top))}
+.screen.on{display:flex}
+
+/* タイトル */
+#title{justify-content:center;gap:28px;background:radial-gradient(circle at 50% 30%,#fff 0,var(--bg) 70%)}
+#title h1{margin:0;font-size:clamp(34px,6vw,60px);letter-spacing:.08em;color:var(--accent);text-shadow:3px 3px 0 #ffd9b8}
+#title p{margin:0;font-size:clamp(20px,3vw,28px)}
+.units{display:flex;flex-wrap:wrap;gap:18px;justify-content:center}
+.unit{background:var(--accent2);color:#fff;font-size:clamp(26px,4vw,38px);padding:22px 44px;border-radius:24px;box-shadow:0 6px 0 #2479b5;font-weight:bold}
+.unit:active{transform:translateY(4px);box-shadow:0 2px 0 #2479b5}
+.unit small{display:block;font-size:.5em;font-weight:normal;margin-top:4px}
+
+/* ゲーム */
+#game{padding-bottom:max(12px,env(safe-area-inset-bottom));gap:10px}
+.bar{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.bar h2{margin:0;font-size:clamp(20px,3vw,30px)}
+.back{background:#ddd;color:#333;font-size:18px;padding:10px 16px;border-radius:14px}
+.answers{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;width:100%}
+.acard{background:var(--card);border-radius:18px;padding:10px;box-shadow:0 3px 10px rgba(0,0,0,.08);display:flex;flex-direction:column;align-items:center;gap:6px}
+.abox{width:var(--box);height:var(--box);display:flex;flex-direction:column;gap:6px}
+.slot{flex:1 1 0;min-height:0;border:3px dashed var(--slotline);border-radius:12px;background:var(--slot);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;transition:background .15s}
+.slot.hover{background:#d4ebff;border-color:var(--accent2)}
+.slot .piece{position:absolute;inset:0;width:auto;height:auto;border:none;background:transparent;box-shadow:none;padding:4px}
+.slot.filled{border-style:solid;border-color:#c9dcef;background:#fff}
+.yomi{font-size:clamp(16px,2.2vw,22px);color:#555}
+.yomi b{color:var(--accent);font-size:1.15em}
+
+.tray{flex:1;width:100%;min-height:0;background:#fff2dc;border:3px solid #ffd7a8;border-radius:22px;position:relative;
+  display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:16px;padding:14px;overflow:hidden}
+.tray-label{position:absolute;left:14px;top:8px;font-size:15px;color:#b07a3c}
+.piece{background:var(--piece);border:2px solid #e8d2b0;border-radius:14px;box-shadow:0 4px 0 #e2c79f;padding:8px;touch-action:none;display:block}
+.piece svg{display:block;width:100%;height:100%;overflow:hidden;pointer-events:none}
+.piece path{fill:var(--ink)}
+.piece.dragging{opacity:.25}
+.floating{position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-50%) scale(1.12);box-shadow:0 10px 24px rgba(0,0,0,.25)}
+
+.done{background:var(--ok);color:#fff;font-size:clamp(28px,4vw,40px);font-weight:bold;padding:12px 56px;border-radius:999px;box-shadow:0 6px 0 #1f8a50}
+.done:active{transform:translateY(4px);box-shadow:0 2px 0 #1f8a50}
+
+/* モーダル */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:80;padding:16px}
+.modal.on{display:flex}
+.mbox{background:#fff;border-radius:28px;padding:28px 34px;text-align:center;max-width:720px;width:100%;animation:pop .35s ease}
+.mbox h3{margin:0 0 10px;font-size:clamp(30px,5vw,48px)}
+.mbox p{margin:0 0 18px;font-size:clamp(20px,3vw,26px)}
+.mbtn{font-size:clamp(22px,3vw,28px);padding:14px 30px;border-radius:18px;color:#fff;font-weight:bold;margin:6px}
+.mbtn.blue{background:var(--accent2);box-shadow:0 5px 0 #2479b5}
+.mbtn.orange{background:var(--accent);box-shadow:0 5px 0 #d06a24}
+.mbtn.gray{background:#9a9a9a;box-shadow:0 5px 0 #777}
+.finals{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:6px 0 18px}
+.final{width:90px;height:90px;background:#fffdf6;border:2px solid #e8d2b0;border-radius:14px;padding:6px}
+.final svg{width:100%;height:100%}
+.final path{fill:var(--ink)}
+@keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.shake{animation:shake .3s ease 2}
+.placed{animation:pop .2s ease}
+.confetti{position:fixed;top:-20px;width:12px;height:18px;z-index:90;pointer-events:none;border-radius:3px}
+</style>
+</head>
+<body>
+
+<section id="title" class="screen on">
+  <h1>ばらばら かんじ パズル</h1>
+  <p>たんげんを えらんでね</p>
+  <div class="units" id="units"></div>
+</section>
+
+<section id="game" class="screen">
+  <div class="bar">
+    <button class="back" id="backBtn">◀ もどる</button>
+    <h2 id="unitName"></h2>
+    <div style="width:90px"></div>
+  </div>
+  <div class="answers" id="answers"></div>
+  <div class="tray" id="tray"><span class="tray-label">パーツを □ に うごかそう</span></div>
+  <button class="done" id="doneBtn">できた！</button>
+</section>
+
+<div class="modal" id="modal"><div class="mbox" id="mbox"></div></div>
+
+<script>
+const KANJI = {"空":{"yomi":"そら","parts":[{"name":"うかんむり","d":"M217 571 846 613Q831 578 813 544Q795 510 773 475Q763 459 763 449Q763 442 769 442Q781 442 814 475Q848 508 911 599Q914 603 922 610Q929 618 929 629Q929 647 912 659Q896 671 885 671Q882 671 879 670Q876 670 873 670L535 647L536 770Q536 784 531 791Q526 798 503 805Q479 813 467 813Q452 813 452 804Q452 798 457 790Q465 777 468 767Q470 757 470 748L471 642L231 626Q235 641 238 654Q240 668 240 676Q240 680 235 690Q230 700 200 700Q190 700 186 694Q182 689 180 677Q170 624 150 563Q129 502 100 450Q95 442 95 436Q95 426 106 418Q116 411 126 407Q137 403 138 403Q148 403 157 419Q176 456 191 495Q206 534 217 571Z","box":[95,67,834,410]},{"name":"八","d":"M604 430V435L607 535Q607 548 592 556Q576 563 560 566Q543 570 539 570Q527 570 527 563Q527 559 532 551Q539 541 540 530Q541 520 541 510L540 425V421Q540 378 560 356Q580 333 626 331Q634 331 642 330Q649 330 657 330Q702 330 746 335Q791 340 835 347Q853 350 853 365Q853 377 842 388Q832 398 820 404Q808 411 803 411Q800 411 796 409Q777 400 752 396Q726 391 703 390Q680 388 668 388Q662 388 656 388Q650 389 643 389Q620 391 612 400Q604 410 604 430Z M383 543Q383 536 375 514Q367 492 344 459Q321 426 277 386Q233 345 159 302Q142 291 142 283Q142 276 153 276Q154 276 174 282Q194 287 227 301Q260 315 299 340Q338 365 378 403Q417 441 449 496Q451 499 452 502Q453 504 453 507Q453 515 442 528Q432 541 418 551Q404 561 394 561Q384 561 384 551Q384 546 383 543Z","box":[142,310,711,294]},{"name":"工","d":"M150 -55 924 -31Q933 -30 940 -26Q946 -23 946 -16Q946 -6 936 6Q925 17 912 26Q899 34 892 34Q888 34 886 33Q875 29 866 27Q856 25 845 25L525 16V192L750 201H752Q760 202 766 206Q772 209 772 216Q772 224 762 235Q753 246 741 255Q729 264 720 264Q715 264 713 263Q703 259 693 258Q683 256 673 255L289 238H281Q263 238 241 243Q238 244 234 244Q228 244 228 238Q228 231 234 218Q239 204 259 187Q265 182 283 182Q288 182 295 182Q302 183 310 183L459 189L461 14L129 5H121Q96 5 77 12Q75 13 71 13Q64 13 64 5Q64 1 65 -1Q69 -13 74 -23Q83 -38 98 -50Q106 -55 129 -55Z","box":[64,616,882,319]}]},"女":{"yomi":"おんな","parts":[{"name":"女","d":"M707 468 948 481Q972 483 972 495Q972 505 960 516Q948 528 934 536Q920 544 914 544Q909 544 907 543Q887 536 866 535L436 511Q457 563 478 620Q499 678 520 744Q523 750 523 756Q523 764 516 770Q509 777 492 785Q465 797 453 797Q440 797 440 788Q440 787 442 781Q446 770 446 758Q446 748 438 720Q431 692 418 655Q406 618 392 579Q377 540 364 507L106 493H94Q84 493 73 494Q62 495 53 498Q50 499 45 499Q39 499 39 494Q39 489 46 472Q53 456 70 442Q78 435 101 435Q107 435 114 435Q121 435 128 436L340 448Q323 408 305 372Q287 335 268 301Q261 289 261 280Q261 271 265 263Q274 244 284 242Q293 241 302 237Q339 221 380 200Q420 180 463 157Q398 89 310 38Q223 -13 110 -52Q85 -61 85 -72Q85 -82 103 -82Q109 -82 138 -76Q167 -71 212 -58Q257 -44 310 -20Q363 3 418 39Q472 75 521 125Q595 83 668 36Q741 -10 802 -54Q811 -61 818 -65Q825 -69 832 -69Q846 -69 855 -51Q864 -33 864 -23Q864 -6 842 7Q782 46 710 89Q638 132 562 172Q609 231 646 304Q682 378 707 468Z M410 451 632 464Q588 310 504 204Q459 227 415 248Q371 270 330 289Q352 329 372 369Q391 409 410 451Z","box":[39,83,933,879]}]},"男":{"yomi":"おとこ","parts":[{"name":"田","d":"M300 390 767 414Q781 415 790 417Q798 419 798 427Q798 432 792 442Q786 453 772 469L800 706Q801 710 804 714Q807 717 807 723Q807 726 802 735Q798 744 788 752Q779 759 762 759H748L279 731Q225 750 210 750Q200 750 200 743Q200 737 205 727Q219 701 221 675L236 461V444Q236 434 236 424Q236 415 235 404V401Q235 382 251 370Q267 359 283 359Q301 359 301 378V381Z M738 704 729 612 532 601 534 692Z M477 689 476 597 285 586 278 678Z M724 560 715 465 529 455 531 552Z M475 549 473 451 296 442 289 541Z","box":[200,121,607,400]},{"name":"力","d":"M488 230 756 244Q739 131 721 64Q703 -4 693 -4Q689 -4 687 -3Q656 8 616 26Q575 43 530 65Q517 71 508 71Q497 71 497 63Q497 56 514 40Q532 23 558 2Q585 -18 614 -37Q643 -56 668 -68Q692 -81 703 -81Q719 -81 735 -68Q758 -49 765 -24Q772 2 780 33Q803 119 820 243Q821 248 824 254Q826 259 826 265Q826 278 813 290Q800 301 786 301H775L508 287Q511 296 514 306Q517 315 519 325Q522 336 522 343Q522 358 508 367Q495 376 480 380Q464 384 457 384Q448 384 448 377Q448 373 451 367Q455 358 455 346Q455 331 449 311Q443 291 440 283L221 272H213Q203 272 192 274Q180 275 168 276Q166 276 164 276Q163 277 161 277Q155 277 155 272Q155 266 157 262Q162 250 171 240Q180 229 190 221Q195 217 214 217Q220 217 228 218Q235 218 242 218L419 227Q388 158 336 106Q284 53 222 14Q159 -26 95 -55Q71 -65 71 -76Q71 -83 85 -83Q93 -83 127 -74Q161 -64 210 -42Q259 -21 312 15Q365 51 412 104Q459 157 488 230Z","box":[71,496,755,467]}]},"青":{"yomi":"あお","parts":[{"name":"上","d":"M117 419 944 458Q964 460 964 472Q964 482 954 492Q945 501 934 508Q923 515 917 515Q916 515 915 514Q914 514 912 514Q903 512 894 510Q884 508 874 507L523 490V553L747 565Q755 566 761 568Q767 571 767 577Q767 582 759 592Q751 602 740 610Q729 619 719 619Q718 619 716 618Q715 618 713 618Q695 614 677 612L523 603L524 660L789 674Q808 676 808 688Q808 698 799 708Q790 717 779 724Q768 730 762 730Q758 730 756 729Q748 726 738 724Q729 723 719 722L524 712V787Q524 800 518 806Q512 813 491 817Q482 819 476 820Q469 821 464 821Q450 821 450 814Q450 813 452 807Q463 788 463 767L464 708L249 697H237Q228 697 218 698Q209 699 201 701Q199 702 195 702Q188 702 188 695Q188 685 198 670Q208 656 216 650Q223 646 237 646Q244 646 251 646Q258 647 267 647L464 657L465 600L305 591H293Q272 591 254 594H249Q242 594 242 589Q242 585 250 571Q257 557 272 546Q278 541 297 541Q302 541 308 542Q315 542 322 542L465 550L466 487L100 470H89Q80 470 70 471Q61 472 53 474Q51 475 48 475Q42 475 42 468Q42 466 46 454Q50 441 61 430Q72 418 92 418Q97 418 104 418Q110 419 117 419Z","box":[42,59,922,403]},{"name":"月","d":"M693 95 694 -29Q669 -22 639 -11Q609 0 581 13Q562 22 552 22Q544 22 544 16Q544 8 558 -6Q573 -21 596 -38Q618 -54 642 -69Q666 -84 686 -94Q706 -103 715 -103Q731 -103 743 -90Q755 -76 755 -58Q755 -53 754 -46Q754 -40 754 -33L750 329Q750 332 752 337Q753 342 753 347Q753 361 740 372Q728 384 708 384H699L316 364Q264 388 250 388Q241 388 241 381Q241 377 243 372Q245 367 248 360Q253 350 254 336Q256 323 256 308L251 4Q251 -10 249 -24Q247 -39 244 -53Q243 -56 243 -60Q243 -71 252 -80Q262 -89 274 -94Q285 -99 292 -99Q309 -99 309 -80L311 79Z M691 330 692 267 314 249 315 312Z M692 215 693 146 312 130 313 198Z","box":[241,492,514,491]}]},"先":{"yomi":"<b>せん</b>せい","parts":[{"name":"上","d":"M606 336 879 350Q889 351 896 354Q903 358 903 365Q903 375 892 386Q880 397 866 406Q853 414 847 414Q843 414 837 412Q827 408 815 406Q803 405 793 404L530 390L533 550L765 563Q775 564 782 567Q789 570 789 577Q789 586 779 598Q769 609 756 617Q742 625 733 625Q730 625 728 624Q725 624 722 623Q712 619 701 618Q690 616 679 615L534 606L537 772Q537 787 522 794Q506 801 490 802Q473 804 469 804Q456 804 456 797Q456 795 460 787Q471 769 471 754L470 602L336 594Q356 638 367 669Q378 700 378 704Q378 714 364 724Q351 734 334 742Q318 749 309 749Q300 749 300 740Q300 739 300 738Q301 736 301 734Q302 730 302 726Q302 721 302 716Q302 701 290 658Q278 614 252 554Q227 495 185 432Q171 411 171 398Q171 390 177 390Q188 390 206 408Q225 426 245 452Q265 477 282 500Q298 524 305 536L469 546L468 387L158 370H148Q124 370 102 375Q100 376 96 376Q88 376 88 369Q88 367 90 361Q102 329 118 320Q134 312 156 312Q161 312 168 312Q174 312 181 313L367 323Q344 224 303 158Q262 91 200 42Q139 -7 54 -54Q32 -67 32 -76Q32 -83 43 -83Q51 -83 62 -79Q162 -46 236 4Q311 55 361 133Q411 211 435 327L542 332L538 52V49Q538 9 554 -14Q571 -36 598 -46Q625 -55 657 -58Q689 -60 721 -60Q798 -60 840 -50Q883 -41 901 -20Q919 1 922 35Q928 94 928 143Q928 190 925 211Q922 232 918 238Q914 243 911 243Q899 243 892 200Q881 134 872 97Q863 60 856 44Q848 27 840 22Q831 17 822 15Q799 10 772 8Q744 5 715 5Q651 5 626 14Q602 24 602 62Z","box":[88,76,815,497],"clip":[-20,573]},{"name":"儿","d":"M606 336 879 350Q889 351 896 354Q903 358 903 365Q903 375 892 386Q880 397 866 406Q853 414 847 414Q843 414 837 412Q827 408 815 406Q803 405 793 404L530 390L533 550L765 563Q775 564 782 567Q789 570 789 577Q789 586 779 598Q769 609 756 617Q742 625 733 625Q730 625 728 624Q725 624 722 623Q712 619 701 618Q690 616 679 615L534 606L537 772Q537 787 522 794Q506 801 490 802Q473 804 469 804Q456 804 456 797Q456 795 460 787Q471 769 471 754L470 602L336 594Q356 638 367 669Q378 700 378 704Q378 714 364 724Q351 734 334 742Q318 749 309 749Q300 749 300 740Q300 739 300 738Q301 736 301 734Q302 730 302 726Q302 721 302 716Q302 701 290 658Q278 614 252 554Q227 495 185 432Q171 411 171 398Q171 390 177 390Q188 390 206 408Q225 426 245 452Q265 477 282 500Q298 524 305 536L469 546L468 387L158 370H148Q124 370 102 375Q100 376 96 376Q88 376 88 369Q88 367 90 361Q102 329 118 320Q134 312 156 312Q161 312 168 312Q174 312 181 313L367 323Q344 224 303 158Q262 91 200 42Q139 -7 54 -54Q32 -67 32 -76Q32 -83 43 -83Q51 -83 62 -79Q162 -46 236 4Q311 55 361 133Q411 211 435 327L542 332L538 52V49Q538 9 554 -14Q571 -36 598 -46Q625 -55 657 -58Q689 -60 721 -60Q798 -60 840 -50Q883 -41 901 -20Q919 1 922 35Q928 94 928 143Q928 190 925 211Q922 232 918 238Q914 243 911 243Q899 243 892 200Q881 134 872 97Q863 60 856 44Q848 27 840 22Q831 17 822 15Q799 10 772 8Q744 5 715 5Q651 5 626 14Q602 24 602 62Z","box":[32,573,896,390],"clip":[573,1020]}]},"生":{"yomi":"せん<b>せい</b>","parts":[{"name":"生","d":"M152 -30 934 -6Q944 -5 951 -2Q958 2 958 9Q958 15 948 28Q938 40 924 51Q911 62 899 62Q894 62 892 61Q882 57 870 54Q858 52 846 52L531 43L532 250L749 259H751Q759 260 765 264Q771 267 771 274Q771 285 760 296Q748 307 736 315Q723 323 718 323Q714 323 712 322Q702 318 692 316Q682 315 672 314L532 307L533 478L792 492Q803 493 810 496Q817 499 817 506Q817 514 806 526Q796 537 782 546Q769 555 761 555Q756 555 754 554Q732 547 709 545L533 535L534 755Q534 766 523 774Q512 781 498 786Q483 791 471 793Q459 795 457 795Q446 795 446 788Q446 784 450 777Q465 755 465 726V531L307 522Q321 551 332 579Q343 607 350 626Q356 646 356 648Q356 657 345 664Q334 672 320 678Q305 683 294 686Q283 689 282 689Q272 689 272 678Q272 673 273 670Q274 666 274 662Q274 659 274 654Q274 637 264 601Q255 565 238 518Q220 472 196 422Q171 372 142 325Q132 309 132 300Q132 295 136 295Q140 295 160 311Q181 327 212 364Q243 401 278 464L465 474L464 304L293 296H285Q267 296 245 301Q242 302 238 302Q232 302 232 296Q232 291 240 274Q247 258 263 245Q268 240 289 240Q294 240 300 240Q307 241 314 241L464 247V41L126 31Q115 31 100 32Q86 33 70 37Q67 38 63 38Q56 38 56 32Q56 32 60 16Q65 0 78 -16Q91 -32 114 -32Q121 -32 130 -31Q139 -30 152 -30Z","box":[56,85,902,827]}]}};
+for(const k in KANJI){KANJI[k].full=[...new Set(KANJI[k].parts.map(p=>p.d))].join(' ');}
+const UNITS = [
+  { name: "くじらぐも", kanji: ["空","女","男","青","先","生"] }
+  // 新しい単元はここに追加
+];
+const PAD = 30;
+let unit = null, pieces = [], drag = null, clipSeq = 0;
+
+function $(id){return document.getElementById(id)}
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id))}
+
+/* ---------- 音 ---------- */
+let ac=null;
+function tone(freq,dur,type='sine',delay=0,vol=.25){
+  try{
+    ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+delay;
+    o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+    o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+dur);
+  }catch(e){}
+}
+const sPick=()=>tone(660,.08,'triangle');
+const sPut =()=>{tone(880,.1,'triangle');tone(1320,.12,'triangle',.06)};
+const sNG  =()=>{tone(300,.25,'square',0,.12);tone(220,.35,'square',.22,.12)};
+const sOK  =()=>[523,659,784,1047].forEach((f,i)=>tone(f,.3,'triangle',i*.13));
+
+/* ---------- SVG ---------- */
+function partSVG(p,fit){
+  const [x,y,w,h]=p.box, vb=[x-PAD,y-PAD,w+PAD*2,h+PAD*2].join(' ');
+  let clip='',ca='';
+  if(p.clip){const id='c'+(++clipSeq);clip=`<clipPath id="${id}"><rect x="-100" y="${p.clip[0]}" width="1200" height="${p.clip[1]-p.clip[0]}"/></clipPath>`;ca=`clip-path="url(#${id})"`;}
+  return `<svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet">${clip}<g ${ca}><g transform="matrix(1 0 0 -1 0 880)"><path d="${p.d}"/></g></g></svg>`;
+}
+function fullSVG(k){return `<svg viewBox="-20 -20 1040 1040"><g transform="matrix(1 0 0 -1 0 880)"><path d="${KANJI[k].full}"/></g></svg>`}
+
+/* ---------- タイトル ---------- */
+UNITS.forEach((u,i)=>{
+  const b=document.createElement('button');b.className='unit';
+  b.innerHTML=`${u.name}<small>${u.kanji.join(' ')}</small>`;
+  b.onclick=()=>start(i);$('units').appendChild(b);
+});
+$('backBtn').onclick=()=>show('title');
+
+/* ---------- ゲーム ---------- */
+function layoutSize(){
+  const n=unit.kanji.length, W=window.innerWidth-32, H=window.innerHeight;
+  let box=Math.min((W-14*(n-1))/n-20, H*0.26, 190);
+  if(box<110){box=Math.min((W-14*2)/3-20,H*0.2,170);}
+  document.documentElement.style.setProperty('--box',Math.max(90,Math.floor(box))+'px');
+  return Math.max(90,box);
+}
+function pieceScale(){ // 1000ユニット → px
+  const W=window.innerWidth,H=window.innerHeight;
+  return Math.max(0.085,Math.min(0.14, W/7200, H/5600));
+}
+function start(i){
+  unit=UNITS[i];$('unitName').textContent='「'+unit.name+'」の かんじ';
+  show('game');build();
+}
+function build(){
+  layoutSize();
+  const ans=$('answers');ans.innerHTML='';pieces=[];
+  unit.kanji.forEach(k=>{
+    const c=document.createElement('div');c.className='acard';
+    const box=document.createElement('div');box.className='abox';
+    KANJI[k].parts.forEach((p,j)=>{
+      const s=document.createElement('div');s.className='slot';
+      s.dataset.k=k;s.dataset.j=j;s.style.flexGrow=p.box[3]+PAD*2;
+      box.appendChild(s);
+      pieces.push({k,j,p});
+    });
+    c.appendChild(box);
+    const y=document.createElement('div');y.className='yomi';y.innerHTML=KANJI[k].yomi;c.appendChild(y);
+    ans.appendChild(c);
+  });
+  const tray=$('tray');tray.querySelectorAll('.piece').forEach(e=>e.remove());
+  const sc=pieceScale();
+  pieces.forEach((pc,idx)=>{
+    const el=document.createElement('div');el.className='piece';
+    el.dataset.idx=idx;el.innerHTML=partSVG(pc.p);
+    el.style.width=Math.round((pc.p.box[2]+PAD*2)*sc+20)+'px';
+    el.style.height=Math.round((pc.p.box[3]+PAD*2)*sc+20)+'px';
+    pc.el=el;pc.trayW=el.style.width;pc.trayH=el.style.height;pc.slot=null;
+    el.addEventListener('pointerdown',onDown);
+  });
+  shuffle(pieces.slice()).forEach(pc=>tray.appendChild(pc.el));
+}
+function shuffle(a){
+  for(let t=0;t<20;t++){
+    for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+    // 同じ漢字のパーツが正しい順で並びすぎないように
+    let ok=true;for(let i=0;i+1<a.length;i++) if(a[i].k===a[i+1].k&&a[i].j+1===a[i+1].j) ok=false;
+    if(ok)break;
+  }
+  return a;
+}
+function toTray(pc){
+  if(pc.slot){pc.slot.classList.remove('filled');pc.slot=null;}
+  pc.el.style.width=pc.trayW;pc.el.style.height=pc.trayH;
+  $('tray').appendChild(pc.el);
+}
+function toSlot(pc,slot){
+  const other=pieces.find(q=>q.slot===slot&&q!==pc);
+  if(other) toTray(other);
+  if(pc.slot) pc.slot.classList.remove('filled');
+  pc.slot=slot;slot.classList.add('filled');
+  pc.el.style.width='';pc.el.style.height='';
+  slot.appendChild(pc.el);
+  pc.el.classList.remove('placed');void pc.el.offsetWidth;pc.el.classList.add('placed');
+}
+
+/* ---------- ドラッグ ---------- */
+function onDown(e){
+  if(drag) return;
+  e.preventDefault();
+  const el=e.currentTarget, pc=pieces[+el.dataset.idx], r=el.getBoundingClientRect();
+  const fl=el.cloneNode(true);fl.classList.add('floating');
+  const sc=pieceScale();
+  fl.style.width=Math.max(r.width,(pc.p.box[2]+PAD*2)*sc+20)+'px';
+  fl.style.height=Math.max(r.height,(pc.p.box[3]+PAD*2)*sc+20)+'px';
+  fl.style.left=e.clientX+'px';fl.style.top=e.clientY+'px';
+  document.body.appendChild(fl);el.classList.add('dragging');
+  drag={pc,fl,id:e.pointerId,hover:null};
+  sPick();
+}
+function slotAt(x,y){
+  const els=document.elementsFromPoint(x,y);
+  for(const el of els){const s=el.closest&&el.closest('.slot');if(s)return s;}
+  // 近くのスロットも拾う（指でかくれても入るように）
+  let best=null,bd=60;
+  document.querySelectorAll('.slot').forEach(s=>{
+    const r=s.getBoundingClientRect();
+    const dx=Math.max(r.left-x,0,x-r.right),dy=Math.max(r.top-y,0,y-r.bottom),d=Math.hypot(dx,dy);
+    if(d<bd){bd=d;best=s;}
+  });
+  return best;
+}
+window.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.id)return;
+  e.preventDefault();
+  drag.fl.style.left=e.clientX+'px';drag.fl.style.top=e.clientY+'px';
+  const s=slotAt(e.clientX,e.clientY);
+  if(s!==drag.hover){if(drag.hover)drag.hover.classList.remove('hover');drag.hover=s;if(s)s.classList.add('hover');}
+},{passive:false});
+function endDrag(e){
+  if(!drag||e.pointerId!==drag.id)return;
+  const {pc,fl,hover}=drag;
+  if(hover)hover.classList.remove('hover');
+  fl.remove();pc.el.classList.remove('dragging');
+  if(hover){toSlot(pc,hover);sPut();}
+  else if(pc.slot){toTray(pc);}
+  drag=null;
+}
+window.addEventListener('pointerup',endDrag);
+window.addEventListener('pointercancel',endDrag);
+
+/* ---------- できた ---------- */
+$('doneBtn').onclick=()=>{
+  const empty=[...document.querySelectorAll('.slot')].filter(s=>!s.classList.contains('filled'));
+  if(empty.length){
+    empty.forEach(s=>{s.classList.remove('shake');void s.offsetWidth;s.classList.add('shake')});
+    modal(`<h3>🤔</h3><p>まだ あいている □ が あるよ。<br>ぜんぶ うごかしてから おしてね。</p>
+      <button class="mbtn blue" onclick="closeModal()">わかった</button>`);
+    return;
+  }
+  const ok=pieces.every(pc=>pc.slot&&pc.slot.dataset.k===pc.k&&+pc.slot.dataset.j===pc.j);
+  if(ok){
+    sOK();confetti();
+    modal(`<h3>🎉 できた！ 🎉</h3><p>ぜんぶ せいかい！ すごいね！</p>
+      <div class="finals">${unit.kanji.map(k=>`<div class="final">${fullSVG(k)}</div>`).join('')}</div>
+      <button class="mbtn orange" onclick="closeModal();build()">もういちど</button>
+      <button class="mbtn gray" onclick="closeModal();show('title')">たんげんを えらぶ</button>`);
+  }else{
+    sNG();
+    modal(`<h3>おしい！</h3><p>まちがいが あるよ。<br>もういちど やってみよう！</p>
+      <button class="mbtn blue" onclick="closeModal();build()">やりなおす</button>`);
+  }
+};
+function modal(h){$('mbox').innerHTML=h;$('modal').classList.add('on')}
+function closeModal(){$('modal').classList.remove('on')}
+function confetti(){
+  const cols=['#ff8a3d','#3aa0e8','#2fb36b','#ffd23d','#e8505b','#a46be8'];
+  for(let i=0;i<80;i++){
+    const d=document.createElement('div');d.className='confetti';
+    d.style.left=Math.random()*100+'vw';d.style.background=cols[i%cols.length];
+    document.body.appendChild(d);
+    const dur=2000+Math.random()*1800;
+    d.animate([{transform:`translateY(0) rotate(0)`},{transform:`translateY(${innerHeight+60}px) rotate(${Math.random()*720}deg)`}],
+      {duration:dur,delay:Math.random()*600,easing:'ease-in'}).onfinish=()=>d.remove();
+  }
+}
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{if(unit&&$('game').classList.contains('on')){layoutSize();
+  const sc=pieceScale();pieces.forEach(pc=>{pc.trayW=Math.round((pc.p.box[2]+PAD*2)*sc+20)+'px';pc.trayH=Math.round((pc.p.box[3]+PAD*2)*sc+20)+'px';if(!pc.slot){pc.el.style.width=pc.trayW;pc.el.style.height=pc.trayH;}});}},200)});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+</script>
+</body>
+</html>
